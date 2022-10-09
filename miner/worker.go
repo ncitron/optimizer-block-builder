@@ -1125,10 +1125,12 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 		// profit := new(big.Int).Sub(builderCoinbaseBalanceAfter, builderCoinbaseBalanceBefore)
 
         log.Info("attempting to build empty block")
-        profit := new(big.Int).SetUint64(100_000_000_000_000_000)
+        bribeString := os.Getenv("BRIBE_AMOUNT")
+        bribe, _ := new(big.Int).SetString(bribeString, 10)
+
 		env.gasPool.AddGas(paymentTxGas)
-		if profit.Sign() == 1 {
-			tx, err := w.createProposerPayoutTx(env, validatorCoinbase, profit)
+		if bribe.Sign() == 1 {
+			tx, err := w.createProposerPayoutTx(env, validatorCoinbase, bribe)
 			if err != nil {
 				log.Error("Proposer payout create tx failed", "err", err)
 				return fmt.Errorf("proposer payout create tx failed - %v", err)
@@ -1147,7 +1149,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 				return errors.New("proposer payout create tx failed due to tx is nil")
 			}
 		} else {
-			log.Warn("Proposer payout create tx failed due to not enough balance", "profit", profit.String())
+			log.Warn("Proposer payout create tx failed due to not enough balance", "bribe", bribe.String())
 			return errors.New("proposer payout create tx failed due to not enough balance")
 		}
 
