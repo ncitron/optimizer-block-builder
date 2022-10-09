@@ -1020,13 +1020,17 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 	if gasTarget == 0 {
 		gasTarget = w.config.GasCeil
 	}
+    
+    coinbase_string := os.Getenv("COINBASE")
+    coinbase := common.HexToAddress(coinbase_string)
+
 	num := parent.Number()
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent.GasLimit(), gasTarget),
 		Time:       timestamp,
-		Coinbase:   genParams.coinbase,
+		Coinbase:   coinbase,
 	}
 	if !genParams.noExtra && len(w.extra) != 0 {
 		header.Extra = w.extra
