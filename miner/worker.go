@@ -1125,7 +1125,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 		// profit := new(big.Int).Sub(builderCoinbaseBalanceAfter, builderCoinbaseBalanceBefore)
 
         log.Info("attempting to build empty block")
-        profit := new(big.Int).SetUint64(1_000_000_000_000_000_000)
+        profit := new(big.Int).SetUint64(100_000_000_000_000_000)
 		env.gasPool.AddGas(paymentTxGas)
 		if profit.Sign() == 1 {
 			tx, err := w.createProposerPayoutTx(env, validatorCoinbase, profit)
