@@ -1084,41 +1084,48 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorCoinbase *common.Address) error {
 	// Split the pending transactions into locals and remotes
 	// Fill the block with all available pending transactions.
-	pending := w.eth.TxPool().Pending(true)
-	localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
-	for _, account := range w.eth.TxPool().Locals() {
-		if txs := remoteTxs[account]; len(txs) > 0 {
-			delete(remoteTxs, account)
-			localTxs[account] = txs
-		}
-	}
+
+	// pending := w.eth.TxPool().Pending(true)
+	// localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
+	// for _, account := range w.eth.TxPool().Locals() {
+	// 	if txs := remoteTxs[account]; len(txs) > 0 {
+	// 		delete(remoteTxs, account)
+	// 		localTxs[account] = txs
+	// 	}
+	// }
+
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
-	var builderCoinbaseBalanceBefore *big.Int
+	// var builderCoinbaseBalanceBefore *big.Int
 	if validatorCoinbase != nil {
-		builderCoinbaseBalanceBefore = env.state.GetBalance(w.coinbase)
+		// builderCoinbaseBalanceBefore = env.state.GetBalance(w.coinbase)
 		if err := env.gasPool.SubGas(paymentTxGas); err != nil {
 			return err
 		}
 	}
-	if len(localTxs) > 0 {
-		txs := types.NewTransactionsByPriceAndNonce(env.signer, localTxs, env.header.BaseFee)
-		if err := w.commitTransactions(env, txs, interrupt); err != nil {
-			return err
-		}
-	}
-	if len(remoteTxs) > 0 {
-		txs := types.NewTransactionsByPriceAndNonce(env.signer, remoteTxs, env.header.BaseFee)
-		if err := w.commitTransactions(env, txs, interrupt); err != nil {
-			return err
-		}
-	}
-	if validatorCoinbase != nil && w.config.BuilderTxSigningKey != nil {
-		builderCoinbaseBalanceAfter := env.state.GetBalance(w.coinbase)
-		log.Info("Before creating validator profit", "validatorCoinbase", validatorCoinbase.String(), "builderCoinbase", w.coinbase.String(), "builderCoinbaseBalanceBefore", builderCoinbaseBalanceBefore.String(), "builderCoinbaseBalanceAfter", builderCoinbaseBalanceAfter.String())
 
-		profit := new(big.Int).Sub(builderCoinbaseBalanceAfter, builderCoinbaseBalanceBefore)
+	// if len(localTxs) > 0 {
+	// 	txs := types.NewTransactionsByPriceAndNonce(env.signer, localTxs, env.header.BaseFee)
+	// 	if err := w.commitTransactions(env, txs, interrupt); err != nil {
+	// 		return err
+	// 	}
+	// }
+	// if len(remoteTxs) > 0 {
+	// 	txs := types.NewTransactionsByPriceAndNonce(env.signer, remoteTxs, env.header.BaseFee)
+	// 	if err := w.commitTransactions(env, txs, interrupt); err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	if validatorCoinbase != nil && w.config.BuilderTxSigningKey != nil {
+		// builderCoinbaseBalanceAfter := env.state.GetBalance(w.coinbase)
+		// log.Info("Before creating validator profit", "validatorCoinbase", validatorCoinbase.String(), "builderCoinbase", w.coinbase.String(), "builderCoinbaseBalanceBefore", builderCoinbaseBalanceBefore.String(), "builderCoinbaseBalanceAfter", builderCoinbaseBalanceAfter.String())
+
+		// profit := new(big.Int).Sub(builderCoinbaseBalanceAfter, builderCoinbaseBalanceBefore)
+
+        log.Info("attempting to build empty block")
+        profit := new(big.Int).SetUint64(1_000_000_000_000_000_000)
 		env.gasPool.AddGas(paymentTxGas)
 		if profit.Sign() == 1 {
 			tx, err := w.createProposerPayoutTx(env, validatorCoinbase, profit)
