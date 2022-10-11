@@ -1388,6 +1388,7 @@ func (w *worker) createTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to 
     senderAddress := crypto.PubkeyToAddress(*senderPubKey)
     nonce := env.state.GetNonce(senderAddress)
     gasPrice := new(big.Int).Add(tip, env.header.BaseFee)
+    gasPrice = new(big.Int).Add(gasPrice, big.NewInt(1))
     innerTx := types.DynamicFeeTx {
         ChainID: w.chainConfig.ChainID,
         Nonce: nonce,
