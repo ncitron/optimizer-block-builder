@@ -1110,11 +1110,11 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         to := common.HexToAddress("0x0000000000000000000000000000000000000000")
         value := big.NewInt(0)
-        // data := []byte{0x12, 0x34, 0x56, 0x78}
-        tip := big.NewInt(1234)
+        //data := []byte{0x12, 0x34, 0x56, 0x78}
+        tip := big.NewInt(0)
         gasLimit := uint64(50_000)
 
-        tx, err := w.createTx(env, privKey, to, value, nil, tip, gasLimit)
+        tx, err := w.createTx(env, privKey, &to, value, nil, tip, gasLimit)
         // tx, err := w.createProposerPayoutTx(env, validatorCoinbase, big.NewInt(100_000_000_000_000_000))
         if err != nil {
             log.Error("could not create tx")
@@ -1383,12 +1383,23 @@ func (w *worker) createProposerPayoutTx(env *environment, recipient *common.Addr
 	return types.SignTx(tx, types.LatestSignerForChainID(chainId), w.config.BuilderTxSigningKey)
 }
 
-func (w *worker) createTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (*types.Transaction, error) {
+func (w *worker) createTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to *common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (*types.Transaction, error) {
     senderPubKey := senderPrivKey.Public().(*ecdsa.PublicKey)
     senderAddress := crypto.PubkeyToAddress(*senderPubKey)
     nonce := env.state.GetNonce(senderAddress)
     gasPrice := new(big.Int).Add(tip, env.header.BaseFee)
-    tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
+    innerTx := types.DynamicFeeTx {
+        ChainID: w.chainConfig.ChainID,
+        Nonce: nonce,
+        GasTipCap: tip,
+        GasFeeCap: gasPrice,
+        Gas: gasLimit,
+        To: to,
+        Value: value,
+        Data: data,
+    }
+
+    tx := types.NewTx(&innerTx)
     signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(w.chainConfig.ChainID), senderPrivKey)
     if err != nil {
         return nil, err
