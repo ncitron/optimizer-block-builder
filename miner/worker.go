@@ -1381,15 +1381,15 @@ func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to co
     nonce := env.state.GetNonce(senderAddress)
     gasPrice := new(big.Int).Add(tip, env.header.BaseFee)
     tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
-    tx, err := types.SignTx(tx, types.LatestSignerForChainID(w.chainConfig.ChainID), senderPrivKey)
+    signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(w.chainConfig.ChainID), senderPrivKey)
     if err != nil {
         return err
     }
 
-    env.gasPool.AddGas(gasLimit)
+    env.gasPool.SubGas(gasLimit)
 	env.state.Prepare(tx.Hash(), env.tcount)
 
-	_, err = w.commitTransaction(env, tx)
+	_, err = w.commitTransaction(env, signedTx)
     if err != nil {
         return err
     }
