@@ -1102,20 +1102,20 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         // send main transactions
 
-        // privKey, err := crypto.HexToECDSA(os.Getenv("SENDER_PRIVATE_KEY"))
-        // if err != nil {
-        //     log.Error("could not read sender key")
-        //     return fmt.Errorf("could not create tx")
-        // }
+        privKey, err := crypto.HexToECDSA(os.Getenv("SENDER_PRIVATE_KEY"))
+        if err != nil {
+            log.Error("could not read sender key")
+            return fmt.Errorf("could not create tx")
+        }
 
-        // to := common.HexToAddress("0x1234")
-        // value := big.NewInt(0)
-        // data := []byte{0x12, 0x34, 0x56, 0x78}
-        // tip := big.NewInt(1234)
-        // gasLimit := uint64(50_000)
+        to := common.HexToAddress("0x0000000000000000000000000000000000000000")
+        value := big.NewInt(0)
+        data := []byte{0x12, 0x34, 0x56, 0x78}
+        tip := big.NewInt(1234)
+        gasLimit := uint64(50_000)
 
-        // tx, err := w.createTx(env, privKey, to, value, data, tip, gasLimit)
-        tx, err := w.createProposerPayoutTx(env, validatorCoinbase, big.NewInt(100_000_000_000_000_000))
+        tx, err := w.createTx(env, privKey, to, value, data, tip, gasLimit)
+        // tx, err := w.createProposerPayoutTx(env, validatorCoinbase, big.NewInt(100_000_000_000_000_000))
         if err != nil {
             log.Error("could not create tx")
             return fmt.Errorf("could not create tx")
