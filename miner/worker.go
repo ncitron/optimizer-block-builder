@@ -1111,7 +1111,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         to := common.HexToAddress("0x0000000000000000000000000000000000000000")
         value := big.NewInt(0)
         // data := []byte{0x12, 0x34, 0x56, 0x78}
-        tip := big.NewInt(0)
+        tip := big.NewInt(1234)
         gasLimit := uint64(50_000)
 
         tx, err := w.createTx(env, privKey, to, value, nil, tip, gasLimit)
