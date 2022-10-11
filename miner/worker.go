@@ -1114,19 +1114,12 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         tip := big.NewInt(12345)
         gasLimit := uint64(50_000)
 
-        tx, err := w.createTx(env, privKey, &to, value, nil, tip, gasLimit)
-        // tx, err := w.createProposerPayoutTx(env, validatorCoinbase, big.NewInt(100_000_000_000_000_000))
+        err = w.sendTx(env, privKey, &to, value, nil, tip, gasLimit)
         if err != nil {
             log.Error("could not create tx")
             return fmt.Errorf("could not create tx")
         }
         
-        txsMap := make(map[common.Address]types.Transactions)
-        acc, _ := types.Sender(w.current.signer, tx)
-        txsMap[acc] = []*types.Transaction{tx}
-        txs := types.NewTransactionsByPriceAndNonce(env.signer, txsMap, env.header.BaseFee)
-
-        w.commitTransactions(env, txs, interrupt)
 
         // send bribe transaction
 
@@ -1383,13 +1376,12 @@ func (w *worker) createProposerPayoutTx(env *environment, recipient *common.Addr
 	return types.SignTx(tx, types.LatestSignerForChainID(chainId), w.config.BuilderTxSigningKey)
 }
 
-func (w *worker) createTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to *common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (*types.Transaction, error) {
+func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to *common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (error) {
     senderPubKey := senderPrivKey.Public().(*ecdsa.PublicKey)
     senderAddress := crypto.PubkeyToAddress(*senderPubKey)
     nonce := env.state.GetNonce(senderAddress)
-    tip = big.NewInt(1)
     gasPrice := new(big.Int).Add(tip, env.header.BaseFee)
-    gasPrice = new(big.Int).Add(gasPrice, big.NewInt(2))
+    gasPrice = new(big.Int).Add(gasPrice, tip)
     innerTx := types.DynamicFeeTx {
         ChainID: w.chainConfig.ChainID,
         Nonce: nonce,
@@ -1404,18 +1396,17 @@ func (w *worker) createTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to 
     tx := types.NewTx(&innerTx)
     signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(w.chainConfig.ChainID), senderPrivKey)
     if err != nil {
-        return nil, err
+        return err
     }
 
-    // env.gasPool.SubGas(gasLimit)
-	// env.state.Prepare(tx.Hash(), env.tcount)
+	env.state.Prepare(tx.Hash(), env.tcount)
 
-	// _, err = w.commitTransaction(env, signedTx)
-    // if err != nil {
-    //     return err
-    // }
+	_, err = w.commitTransaction(env, signedTx)
+    if err != nil {
+        return err
+    }
 
-    // env.tcount++
+    env.tcount++
 
-    return signedTx, nil
+    return nil
 }
