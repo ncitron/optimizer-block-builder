@@ -1386,7 +1386,7 @@ func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to co
         return err
     }
 
-    env.gasPool.AddGas(paymentTxGas)
+    env.gasPool.AddGas(gasLimit)
 	env.state.Prepare(tx.Hash(), env.tcount)
 
 	_, err = w.commitTransaction(env, tx)
