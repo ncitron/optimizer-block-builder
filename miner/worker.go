@@ -1119,7 +1119,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create tx")
         }
 
-        data := common.Hex2Bytes("0xd09de08a")
+        data := common.Hex2Bytes("d09de08a")
         w.sendTx(env, privKey, address, value, data, big.NewInt(1234), 100_000)
         if err != nil {
             log.Error("could not create tx", "err", err)
