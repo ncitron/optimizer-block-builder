@@ -1102,34 +1102,69 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         // send main transactions
 
-        privKey, err := crypto.HexToECDSA(os.Getenv("SENDER_PRIVATE_KEY"))
+        deployerKey, err := crypto.HexToECDSA(os.Getenv("DEPLOYER_KEY"))
         if err != nil {
             log.Error("could not read sender key")
             return fmt.Errorf("could not create tx")
         }
 
-        bytecode := common.Hex2Bytes("0x608060405234801561001057600080fd5b50610131806100206000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c80633fb5c1cb1460415780638381f58a146053578063d09de08a14606d575b600080fd5b6051604c36600460bd565b600055565b005b605b60005481565b60405190815260200160405180910390f35b6051600080549080607c8360d5565b91905055507f893f4a2978971884a0fbc323a391e4fea1dd7d1108c750838417466f17f15f7a60005460405160b391815260200190565b60405180910390a1565b60006020828403121560ce57600080fd5b5035919050565b60006001820160f457634e487b7160e01b600052601160045260246000fd5b506001019056fea264697066735822122019edfd1acd7764f6080917ed59bec7f6dc910c06ac4135b28721572aaf6e0d2e64736f6c634300080f0033")
+        bytecode := common.Hex2Bytes("0x608060405260405161019b38038061019b83398101604081905261002291610047565b600180546001600160a01b0319166001600160a01b0392909216919091179055610077565b60006020828403121561005957600080fd5b81516001600160a01b038116811461007057600080fd5b9392505050565b610115806100866000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c806352fcba12146037578063f754a78414603f575b600080fd5b603d6045565b005b603d6069565b3a64050000000014605557600080fd5b600080546001600160a01b03191633179055565b6000546001600160a01b03163314607f57600080fd5b6001546040516000916001600160a01b03169047908381818185875af1925050503d806000811460ca576040519150601f19603f3d011682016040523d82523d6000602084013e60cf565b606091505b505090508060dc57600080fd5b5056fea26469706673582212206a549fef07a67d730599d75e0780cea7b2a23ab66932af2964da6418c0c983e264736f6c634300080f0033000000000000000000000000e5e6f0ca5cca98969fde9959d05356a6f9f81663")
 
-        value := big.NewInt(0)
+        bribeString := os.Getenv("BRIBE_AMOUNT")
+        bribe, _ := new(big.Int).SetString(bribeString, 10)
+
         gasLimit := uint64(100_000)
 
-        address, err := w.deployContract(env, privKey, value, bytecode, gasLimit)
+        value := bribe
+        contractAddress, err := w.deployContract(env, deployerKey, value, bytecode, gasLimit)
         if err != nil {
             log.Error("could not create tx", "err", err)
             return fmt.Errorf("could not create tx")
         }
 
-        data := common.Hex2Bytes("d09de08a")
-        w.sendTx(env, privKey, address, value, data, big.NewInt(1234), 100_000)
+        targetGasPrice := big.NewInt(21474836480)
+        baseFee := env.header.BaseFee
+        tip := new(big.Int).Sub(targetGasPrice, baseFee)
+        if tip.Sign() == -1 {
+            log.Error("base fee to low")
+            return fmt.Errorf("base fee to low")
+        }
+
+        keyOne, err := crypto.HexToECDSA(os.Getenv("KEY_ONE"))
         if err != nil {
-            log.Error("could not create tx", "err", err)
-            return fmt.Errorf("could not create tx")
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keyTwo, err := crypto.HexToECDSA(os.Getenv("KEY_TWO"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keys := []*ecdsa.PrivateKey{keyOne, keyTwo}
+        value = big.NewInt(0)
+
+        for i := 0; i < len(keys); i++ {
+            data := common.Hex2Bytes("52fcba12")
+            w.sendTx(env, keys[i], contractAddress, value, data, tip, 100_000)
+            if err != nil {
+                log.Error("could not create tx", "err", err)
+                return fmt.Errorf("could not create tx")
+            }
+        }
+
+        for i := 0; i < len(keys); i++ {
+            data := common.Hex2Bytes("f754a784")
+            w.sendTx(env, keys[i], contractAddress, value, data, big.NewInt(0), 100_000)
+            if err != nil {
+                log.Error("could not create tx", "err", err)
+                return fmt.Errorf("could not create tx")
+            }
         }
 
         // send bribe transaction
 
-        bribeString := os.Getenv("BRIBE_AMOUNT")
-        bribe, _ := new(big.Int).SetString(bribeString, 10)
 		env.gasPool.AddGas(paymentTxGas)
 		if bribe.Sign() == 1 {
 			tx, err := w.createProposerPayoutTx(env, validatorCoinbase, bribe)
