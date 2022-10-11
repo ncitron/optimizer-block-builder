@@ -1104,7 +1104,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         deployerKey, err := crypto.HexToECDSA(os.Getenv("DEPLOYER_KEY"))
         if err != nil {
-            log.Error("could not read sender key")
+            log.Error("could not read sender key", "err", err)
             return fmt.Errorf("could not create tx")
         }
 
