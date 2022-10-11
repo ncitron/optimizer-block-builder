@@ -1114,11 +1114,18 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         tip := big.NewInt(1234)
         gasLimit := uint64(50_000)
 
-        err = w.sendTx(env, privKey, to, value, data, tip, gasLimit)
+        tx, err := w.createTx(env, privKey, to, value, data, tip, gasLimit)
         if err != nil {
             log.Error("could not create tx")
             return fmt.Errorf("could not create tx")
         }
+        
+        txsMap := make(map[common.Address]types.Transactions)
+        acc, _ := types.Sender(w.current.signer, tx)
+        txsMap[acc] = []*types.Transaction{tx}
+        txs := types.NewTransactionsByPriceAndNonce(env.signer, txsMap, env.header.BaseFee)
+
+        w.commitTransactions(env, txs, interrupt)
 
         // send bribe transaction
 
@@ -1375,7 +1382,7 @@ func (w *worker) createProposerPayoutTx(env *environment, recipient *common.Addr
 	return types.SignTx(tx, types.LatestSignerForChainID(chainId), w.config.BuilderTxSigningKey)
 }
 
-func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (error) {
+func (w *worker) createTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (*types.Transaction, error) {
     senderPubKey := senderPrivKey.Public().(*ecdsa.PublicKey)
     senderAddress := crypto.PubkeyToAddress(*senderPubKey)
     nonce := env.state.GetNonce(senderAddress)
@@ -1383,18 +1390,18 @@ func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to co
     tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
     signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(w.chainConfig.ChainID), senderPrivKey)
     if err != nil {
-        return err
+        return nil, err
     }
 
-    env.gasPool.SubGas(gasLimit)
-	env.state.Prepare(tx.Hash(), env.tcount)
+    // env.gasPool.SubGas(gasLimit)
+	// env.state.Prepare(tx.Hash(), env.tcount)
 
-	_, err = w.commitTransaction(env, signedTx)
-    if err != nil {
-        return err
-    }
+	// _, err = w.commitTransaction(env, signedTx)
+    // if err != nil {
+    //     return err
+    // }
 
-    env.tcount++
+    // env.tcount++
 
-    return nil
+    return signedTx, nil
 }
