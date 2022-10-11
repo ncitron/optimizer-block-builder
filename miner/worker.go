@@ -1125,7 +1125,9 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         txsMap[acc] = []*types.Transaction{tx}
         txs := types.NewTransactionsByPriceAndNonce(env.signer, txsMap, env.header.BaseFee)
 
-        w.commitTransactions(env, txs, interrupt)
+        _ = txs
+
+        // w.commitTransactions(env, txs, interrupt)
 
         // send bribe transaction
 
