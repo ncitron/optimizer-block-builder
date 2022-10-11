@@ -1117,7 +1117,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         err = w.sendTx(env, privKey, nil, value, data, tip, gasLimit)
         if err != nil {
-            log.Error("could not create tx")
+            log.Error("could not create tx", "err", err)
             return fmt.Errorf("could not create tx")
         }
 
