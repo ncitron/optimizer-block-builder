@@ -1055,7 +1055,7 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 	// Could potentially happen if starting to mine in an odd state.
 	// Note genParams.coinbase can be different with header.Coinbase
 	// since clique algorithm can modify the coinbase field in header.
-	env, err := w.makeEnv(parent, header, genParams.coinbase)
+	env, err := w.makeEnv(parent, header, coinbase)
 	if err != nil {
 		log.Error("Failed to create sealing context", "err", err)
 		return nil, err
@@ -1108,15 +1108,21 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create tx")
         }
 
-        to := common.HexToAddress("0x1234")
-        value := big.NewInt(0)
-        data := []byte{0x12, 0x34, 0x56, 0x78}
-        tip := big.NewInt(1234)
-        gasLimit := uint64(50_000)
+        bytecode := common.Hex2Bytes("0x608060405234801561001057600080fd5b50610131806100206000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c80633fb5c1cb1460415780638381f58a146053578063d09de08a14606d575b600080fd5b6051604c36600460bd565b600055565b005b605b60005481565b60405190815260200160405180910390f35b6051600080549080607c8360d5565b91905055507f893f4a2978971884a0fbc323a391e4fea1dd7d1108c750838417466f17f15f7a60005460405160b391815260200190565b60405180910390a1565b60006020828403121560ce57600080fd5b5035919050565b60006001820160f457634e487b7160e01b600052601160045260246000fd5b506001019056fea264697066735822122019edfd1acd7764f6080917ed59bec7f6dc910c06ac4135b28721572aaf6e0d2e64736f6c634300080f0033")
 
-        err = w.sendTx(env, privKey, to, value, data, tip, gasLimit)
+        value := big.NewInt(0)
+        gasLimit := uint64(100_000)
+
+        address, err := w.deployContract(env, privKey, value, bytecode, gasLimit)
         if err != nil {
-            log.Error("could not create tx")
+            log.Error("could not create tx", "err", err)
+            return fmt.Errorf("could not create tx")
+        }
+
+        data := common.Hex2Bytes("d09de08a")
+        w.sendTx(env, privKey, address, value, data, big.NewInt(1234), 100_000)
+        if err != nil {
+            log.Error("could not create tx", "err", err)
             return fmt.Errorf("could not create tx")
         }
 
@@ -1375,21 +1381,31 @@ func (w *worker) createProposerPayoutTx(env *environment, recipient *common.Addr
 	return types.SignTx(tx, types.LatestSignerForChainID(chainId), w.config.BuilderTxSigningKey)
 }
 
-func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (error) {
+func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to *common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (error) {
     senderPubKey := senderPrivKey.Public().(*ecdsa.PublicKey)
     senderAddress := crypto.PubkeyToAddress(*senderPubKey)
     nonce := env.state.GetNonce(senderAddress)
     gasPrice := new(big.Int).Add(tip, env.header.BaseFee)
-    tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
-    tx, err := types.SignTx(tx, types.LatestSignerForChainID(w.chainConfig.ChainID), senderPrivKey)
+    gasPrice = new(big.Int).Add(gasPrice, tip)
+    innerTx := types.DynamicFeeTx {
+        ChainID: w.chainConfig.ChainID,
+        Nonce: nonce,
+        GasTipCap: tip,
+        GasFeeCap: gasPrice,
+        Gas: gasLimit,
+        To: to,
+        Value: value,
+        Data: data,
+    }
+
+    tx := types.NewTx(&innerTx)
+    signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(w.chainConfig.ChainID), senderPrivKey)
     if err != nil {
         return err
     }
 
-    env.gasPool.AddGas(gasLimit)
 	env.state.Prepare(tx.Hash(), env.tcount)
-
-	_, err = w.commitTransaction(env, tx)
+	_, err = w.commitTransaction(env, signedTx)
     if err != nil {
         return err
     }
@@ -1397,4 +1413,38 @@ func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to co
     env.tcount++
 
     return nil
+}
+
+func (w *worker) deployContract(env *environment, senderPrivKey *ecdsa.PrivateKey, value *big.Int, bytecode []byte, gasLimit uint64) (*common.Address, error) {
+    senderPubKey := senderPrivKey.Public().(*ecdsa.PublicKey)
+    senderAddress := crypto.PubkeyToAddress(*senderPubKey)
+    nonce := env.state.GetNonce(senderAddress)
+    gasPrice := new(big.Int).Set(env.header.BaseFee)
+    innerTx := types.DynamicFeeTx {
+        ChainID: w.chainConfig.ChainID,
+        Nonce: nonce,
+        GasTipCap: big.NewInt(0),
+        GasFeeCap: gasPrice,
+        Gas: gasLimit,
+        Value: value,
+        Data: bytecode,
+    }
+
+    tx := types.NewTx(&innerTx)
+    signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(w.chainConfig.ChainID), senderPrivKey)
+    if err != nil {
+        return nil, err
+    }
+
+	env.state.Prepare(tx.Hash(), env.tcount)
+	_, err = w.commitTransaction(env, signedTx)
+    if err != nil {
+        return nil, err
+    }
+
+    env.tcount++
+
+    contract := crypto.CreateAddress(senderAddress, nonce)
+
+    return &contract, nil
 }
