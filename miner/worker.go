@@ -1376,7 +1376,8 @@ func (w *worker) createProposerPayoutTx(env *environment, recipient *common.Addr
 }
 
 func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (error) {
-    senderAddress := crypto.PubkeyToAddress(senderPrivKey.Public().(ecdsa.PublicKey))
+    senderPubKey := senderPrivKey.Public().(*ecdsa.PublicKey)
+    senderAddress := crypto.PubkeyToAddress(*senderPubKey)
     nonce := env.state.GetNonce(senderAddress)
     gasPrice := new(big.Int).Add(tip, env.header.BaseFee)
     tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
