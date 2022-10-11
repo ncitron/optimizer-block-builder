@@ -1115,7 +1115,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         bribeString := os.Getenv("BRIBE_AMOUNT")
         bribe, _ := new(big.Int).SetString(bribeString, 10)
 
-        gasLimit := uint64(100_000)
+        gasLimit := uint64(500_000)
 
         value := bribe
         contractAddress, err := w.deployContract(env, deployerKey, value, bytecode, gasLimit)
