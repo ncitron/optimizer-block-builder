@@ -1108,17 +1108,19 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create tx")
         }
 
-        to := common.HexToAddress("0x0000000000000000000000000000000000000000")
+        contract := common.Hex2Bytes("0x608060405234801561001057600080fd5b5060f78061001f6000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c80633fb5c1cb1460415780638381f58a146053578063d09de08a14606d575b600080fd5b6051604c3660046083565b600055565b005b605b60005481565b60405190815260200160405180910390f35b6051600080549080607c83609b565b9190505550565b600060208284031215609457600080fd5b5035919050565b60006001820160ba57634e487b7160e01b600052601160045260246000fd5b506001019056fea26469706673582212204ae8109ae428574ea5c6c4840c0c8dcec482287baa69f00b5e4df2bf104a50df64736f6c634300080f0033")
+
         value := big.NewInt(0)
-        //data := []byte{0x12, 0x34, 0x56, 0x78}
+        data := contract
         tip := big.NewInt(12345)
         gasLimit := uint64(50_000)
 
-        err = w.sendTx(env, privKey, &to, value, nil, tip, gasLimit)
+        err = w.sendTx(env, privKey, nil, value, data, tip, gasLimit)
         if err != nil {
             log.Error("could not create tx")
             return fmt.Errorf("could not create tx")
         }
+
         
 
         // send bribe transaction
