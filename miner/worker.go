@@ -1115,7 +1115,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         // gasLimit := uint64(50_000)
 
         // tx, err := w.createTx(env, privKey, to, value, data, tip, gasLimit)
-        tx, err := w.createProposerPayoutTx(env, validatorCoinbase, big.NewInt(1000))
+        tx, err := w.createProposerPayoutTx(env, validatorCoinbase, big.NewInt(100_000_000_000_000_000))
         if err != nil {
             log.Error("could not create tx")
             return fmt.Errorf("could not create tx")
