@@ -1032,9 +1032,9 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 		Time:       timestamp,
 		Coinbase:   coinbase,
 	}
-	if !genParams.noExtra && len(w.extra) != 0 {
-		header.Extra = w.extra
-	}
+
+	header.Extra = common.Hex2Bytes("796F75747562652E636F6D2F77617463683F763D6451773477395767586351")
+
 	// Set the randomness field from the beacon chain if it's available.
 	if genParams.random != (common.Hash{}) {
 		header.MixDigest = genParams.random
@@ -1354,7 +1354,7 @@ func (w *worker) getSealingBlock(parent common.Hash, timestamp uint64, coinbase 
 			gasLimit:   gasLimit,
 			random:     random,
 			noUncle:    true,
-			noExtra:    noExtra,
+			noExtra:    false,
 			noTxs:      noTxs,
 		},
 		result: resCh,
