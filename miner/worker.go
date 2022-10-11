@@ -1086,52 +1086,44 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 // be customized with the plugin in the future.
 
 func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorCoinbase *common.Address) error {
-	// Split the pending transactions into locals and remotes
-	// Fill the block with all available pending transactions.
-
-	// pending := w.eth.TxPool().Pending(true)
-	// localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
-	// for _, account := range w.eth.TxPool().Locals() {
-	// 	if txs := remoteTxs[account]; len(txs) > 0 {
-	// 		delete(remoteTxs, account)
-	// 		localTxs[account] = txs
-	// 	}
-	// }
-
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
-	// var builderCoinbaseBalanceBefore *big.Int
 	if validatorCoinbase != nil {
-		// builderCoinbaseBalanceBefore = env.state.GetBalance(w.coinbase)
 		if err := env.gasPool.SubGas(paymentTxGas); err != nil {
 			return err
 		}
 	}
 
-	// if len(localTxs) > 0 {
-	// 	txs := types.NewTransactionsByPriceAndNonce(env.signer, localTxs, env.header.BaseFee)
-	// 	if err := w.commitTransactions(env, txs, interrupt); err != nil {
-	// 		return err
-	// 	}
-	// }
-	// if len(remoteTxs) > 0 {
-	// 	txs := types.NewTransactionsByPriceAndNonce(env.signer, remoteTxs, env.header.BaseFee)
-	// 	if err := w.commitTransactions(env, txs, interrupt); err != nil {
-	// 		return err
-	// 	}
-	// }
 
 	if validatorCoinbase != nil && w.config.BuilderTxSigningKey != nil {
-		// builderCoinbaseBalanceAfter := env.state.GetBalance(w.coinbase)
-		// log.Info("Before creating validator profit", "validatorCoinbase", validatorCoinbase.String(), "builderCoinbase", w.coinbase.String(), "builderCoinbaseBalanceBefore", builderCoinbaseBalanceBefore.String(), "builderCoinbaseBalanceAfter", builderCoinbaseBalanceAfter.String())
 
-		// profit := new(big.Int).Sub(builderCoinbaseBalanceAfter, builderCoinbaseBalanceBefore)
+        log.Info("attempting to build block")
 
-        log.Info("attempting to build empty block")
+        // send main transactions
+
+        privKey, err := crypto.HexToECDSA(os.Getenv("SENDER_PRIVATE_KEY"))
+        if err != nil {
+            log.Error("could not read sender key")
+            return fmt.Errorf("could not create tx")
+        }
+
+        to := common.HexToAddress("0x1234")
+        value := big.NewInt(0)
+        data := []byte{0x12, 0x34, 0x56, 0x78}
+        tip := big.NewInt(1234)
+        gasLimit := uint64(50_000)
+
+        err = w.sendTx(env, privKey, to, value, data, tip, gasLimit)
+        if err != nil {
+            log.Error("could not create tx")
+            return fmt.Errorf("could not create tx")
+        }
+
+        // send bribe transaction
+
         bribeString := os.Getenv("BRIBE_AMOUNT")
         bribe, _ := new(big.Int).SetString(bribeString, 10)
-
 		env.gasPool.AddGas(paymentTxGas)
 		if bribe.Sign() == 1 {
 			tx, err := w.createProposerPayoutTx(env, validatorCoinbase, bribe)
@@ -1139,16 +1131,21 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 				log.Error("Proposer payout create tx failed", "err", err)
 				return fmt.Errorf("proposer payout create tx failed - %v", err)
 			}
+
 			if tx != nil {
-				log.Info("Proposer payout create tx succeeded, proceeding to commit tx")
+
 				env.state.Prepare(tx.Hash(), env.tcount)
 				_, err = w.commitTransaction(env, tx)
+
 				if err != nil {
 					log.Error("Proposer payout commit tx failed", "hash", tx.Hash().String(), "err", err)
 					return fmt.Errorf("proposer payout commit tx failed - %v", err)
 				}
+
 				log.Info("Proposer payout commit tx succeeded", "hash", tx.Hash().String())
+
 				env.tcount++
+
 			} else {
 				return errors.New("proposer payout create tx failed due to tx is nil")
 			}
@@ -1376,4 +1373,27 @@ func (w *worker) createProposerPayoutTx(env *environment, recipient *common.Addr
 	log.Debug("createProposerPayoutTx", "sender", sender, "chainId", chainId.String(), "nonce", nonce, "amount", amount.String(), "baseFee", env.header.BaseFee.String(), "fee", fee)
 	tx := types.NewTransaction(nonce, *recipient, amount, paymentTxGas, gasPrice, nil)
 	return types.SignTx(tx, types.LatestSignerForChainID(chainId), w.config.BuilderTxSigningKey)
+}
+
+func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to common.Address, value *big.Int, data []byte, tip *big.Int, gasLimit uint64) (error) {
+    senderAddress := crypto.PubkeyToAddress(senderPrivKey.Public().(ecdsa.PublicKey))
+    nonce := env.state.GetNonce(senderAddress)
+    gasPrice := new(big.Int).Add(tip, env.header.BaseFee)
+    tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
+    tx, err := types.SignTx(tx, types.LatestSignerForChainID(w.chainConfig.ChainID), senderPrivKey)
+    if err != nil {
+        return err
+    }
+
+    env.gasPool.AddGas(paymentTxGas)
+	env.state.Prepare(tx.Hash(), env.tcount)
+
+	_, err = w.commitTransaction(env, tx)
+    if err != nil {
+        return err
+    }
+
+    env.tcount++
+
+    return nil
 }
