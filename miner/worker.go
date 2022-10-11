@@ -1113,7 +1113,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         value := big.NewInt(0)
         data := contract
         tip := big.NewInt(12345)
-        gasLimit := uint64(50_000)
+        gasLimit := uint64(100_000)
 
         err = w.sendTx(env, privKey, nil, value, data, tip, gasLimit)
         if err != nil {
