@@ -1439,8 +1439,7 @@ func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to *c
     }
 
 
-	if !w.isRunning() && len(logs) > 0 {
-        log.Error("adding logs", "logs", logs)
+	if len(logs) > 0 {
 		cpy := make([]*types.Log, len(logs))
 		for i, l := range logs {
 			cpy[i] = new(types.Log)
