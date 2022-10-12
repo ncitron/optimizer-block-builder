@@ -1438,7 +1438,7 @@ func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to *c
         return err
     }
 
-    log.Error("logs", logs)
+    log.Error("logs", "logs", logs)
 
 	if len(logs) > 0 {
 		cpy := make([]*types.Log, len(logs))
