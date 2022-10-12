@@ -1101,6 +1101,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         log.Info("attempting to build block")
 
         // send main transactions
+        // TODO: check all gas limits
 
         deployerKey, err := crypto.HexToECDSA(os.Getenv("DEPLOYER_KEY"))
         if err != nil {
@@ -1108,29 +1109,21 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create tx")
         }
 
-        bytecode := common.Hex2Bytes("608060405261011e806100136000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c806352fcba12146037578063f754a78414603f575b600080fd5b603d6045565b005b603d6069565b3a64050000000014605557600080fd5b600080546001600160a01b03191633179055565b6000546001600160a01b03163314607f57600080fd5b604051600090736578cdc9a4ce219408935221038202cbd91e90bd9047908381818185875af1925050503d806000811460d3576040519150601f19603f3d011682016040523d82523d6000602084013e60d8565b606091505b505090508060e557600080fd5b5056fea2646970667358221220bd9e6935e240cb331762dda1845acc16bf7d13c66736c234f321dd0ce4edc6e264736f6c634300080d0033")
+        // STEP 1: deploy optimzer contract
 
-        log.Error(string(bytecode))
+        playerBytecode := common.Hex2Bytes("693a4132413552525934f33452600a6016f3")
+        value := big.NewInt(0)
+        gasLimit := uint64(100_000)
 
-        bribeString := os.Getenv("BRIBE_AMOUNT")
-        bribe, _ := new(big.Int).SetString(bribeString, 10)
-
-        gasLimit := uint64(500_000)
-
-        value := bribe
-        contractAddress, err := w.deployContract(env, deployerKey, value, bytecode, gasLimit)
+        playerContract, err := w.deployContract(env, deployerKey, value, playerBytecode, gasLimit)
         if err != nil {
             log.Error("could not create tx", "err", err)
             return fmt.Errorf("could not create tx")
         }
 
-        targetGasPrice := big.NewInt(21474836480)
-        baseFee := env.header.BaseFee
-        tip := new(big.Int).Sub(targetGasPrice, baseFee)
-        if tip.Sign() == -1 {
-            log.Error("base fee to low")
-            return fmt.Errorf("base fee to low")
-        }
+        // STEP 2: become the optimizer
+
+        // fetch keys
 
         keyOne, err := crypto.HexToECDSA(os.Getenv("KEY_ONE"))
         if err != nil {
@@ -1144,25 +1137,94 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create key")
         }
 
+        // TODO: add more keys
         keys := []*ecdsa.PrivateKey{keyOne, keyTwo}
-        value = big.NewInt(0)
+
+        // calculate correct tip amount
+
+        targetGasPrice := big.NewInt(34359738368)   // 0x0800000000
+        baseFee := env.header.BaseFee
+        tip := new(big.Int).Sub(targetGasPrice, baseFee)
+        if tip.Sign() == -1 {
+            log.Error("base fee to low")
+            return fmt.Errorf("base fee to low")
+        }
+
+        optimizerAddress := common.HexToAddress("27761C482000F2fC91E74587576c2B267eEb4546")
+
+        // send claim txs
 
         for i := 0; i < len(keys); i++ {
-            data := common.Hex2Bytes("52fcba12")
-            w.sendTx(env, keys[i], contractAddress, value, data, tip, 100_000)
+            sig := common.Hex2Bytes("3a0b21a0")
+            leftPad := common.Hex2Bytes("000000000000000000000000")
+            playerBytes := playerContract.Bytes()
+
+            data := []byte{}
+            data = append(data, sig...)
+            data = append(data, leftPad...)
+            data = append(data, playerBytes...)
+
+            value = big.NewInt(0)
+            
+            // TODO: check gas limit
+            w.sendTx(env, keys[i], &optimizerAddress, value, data, tip, 100_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
             }
         }
 
+        // STEP 3: transfer nft
+
+        captureAddress := common.HexToAddress(os.Getenv("CAPTURE_ADDRESS"))
+
         for i := 0; i < len(keys); i++ {
-            data := common.Hex2Bytes("f754a784")
-            w.sendTx(env, keys[i], contractAddress, value, data, big.NewInt(0), 100_000)
+            sig := common.Hex2Bytes("23b872dd")
+
+            leftPad := common.Hex2Bytes("000000000000000000000000")
+            senderPubKey := keys[i].Public().(*ecdsa.PublicKey)
+            senderAddress := crypto.PubkeyToAddress(*senderPubKey)
+            from := []byte{}
+            from = append(from, leftPad...)
+            from = append(from, senderAddress.Bytes()...)
+
+            to := []byte{}
+            to = append(to, leftPad...)
+            to = append(to, captureAddress.Bytes()...)
+
+            tokenId := common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")
+            
+            data := []byte{}
+            data = append(data, sig...)
+            data = append(data, from...)
+            data = append(data, to...)
+            data = append(data, tokenId...)
+
+            value = big.NewInt(0)
+
+            // TODO: check gas limit
+            w.sendTx(env, keys[i], &optimizerAddress, value, data, big.NewInt(0), 100_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
             }
+        }
+
+        // STEP 4 fund bribe address if NFT claimed
+        
+        bribeString := os.Getenv("BRIBE_AMOUNT")
+        bribe, _ := new(big.Int).SetString(bribeString, 10)
+
+        // TODO: fix bytecode
+        funderBytecode := common.Hex2Bytes("693a4132413552525934f33452600a6016f3")
+        value = bribe
+        // TODO: check gas limit
+        gasLimit = uint64(200_000)
+
+        _, err = w.deployContract(env, deployerKey, value, funderBytecode, gasLimit)
+        if err != nil {
+            log.Error("could not create tx", "err", err)
+            return fmt.Errorf("could not create tx")
         }
 
         // send bribe transaction
