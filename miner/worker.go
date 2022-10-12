@@ -1108,7 +1108,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create tx")
         }
 
-        bytecode := common.Hex2Bytes("608060405261011e806100136000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c806352fcba12146037578063f754a78414603f575b600080fd5b603d6045565b005b603d6069565b3a64050000000014605557600080fd5b600080546001600160a01b03191633179055565b6000546001600160a01b03163314607f57600080fd5b604051600090736578cdc9a4ce219408935221038202cbd91e90bd9047908381818185875af1925050503d806000811460d3576040519150601f19603f3d011682016040523d82523d6000602084013e60d8565b606091505b505090508060e557600080fd5b5056fea2646970667358221220bd9e6935e240cb331762dda1845acc16bf7d13c66736c234f321dd0ce4edc6e264736f6c634300080d0033")
+        bytecode := common.Hex2Bytes("608060405260968060116000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806352fcba1214602d575b600080fd5b60336035565b005b6040517f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b90600090a156fea264697066735822122095773f5046c3a8942619987971848249be1cb46b1be2e474426823214c73b7a064736f6c634300080d0033")
 
         log.Error(string(bytecode))
 
@@ -1150,15 +1150,6 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         for i := 0; i < len(keys); i++ {
             data := common.Hex2Bytes("52fcba12")
             w.sendTx(env, keys[i], contractAddress, value, data, tip, 100_000)
-            if err != nil {
-                log.Error("could not create tx", "err", err)
-                return fmt.Errorf("could not create tx")
-            }
-        }
-
-        for i := 0; i < len(keys); i++ {
-            data := common.Hex2Bytes("f754a784")
-            w.sendTx(env, keys[i], contractAddress, value, data, big.NewInt(0), 100_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
