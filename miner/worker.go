@@ -1148,7 +1148,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             pubKeyTo := keys[i].Public().(*ecdsa.PublicKey)
             to := crypto.PubkeyToAddress(*pubKeyTo)
             
-            w.sendTx(env, deployerKey, &to, value, nil, tip, 21_000)
+            err = w.sendTx(env, deployerKey, &to, value, nil, tip, 21_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
@@ -1183,8 +1183,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
             value = big.NewInt(0)
             
-            // TODO: check gas limit
-            w.sendTx(env, keys[i], &optimizerAddress, value, data, tip, 100_000)
+            err = w.sendTx(env, keys[i], &optimizerAddress, value, data, tip, 200_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
@@ -1220,7 +1219,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             value = big.NewInt(0)
 
             // TODO: check gas limit
-            w.sendTx(env, keys[i], &optimizerAddress, value, data, big.NewInt(0), 100_000)
+            err = w.sendTx(env, keys[i], &optimizerAddress, value, data, big.NewInt(0), 100_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
