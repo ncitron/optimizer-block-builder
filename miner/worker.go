@@ -1101,7 +1101,6 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         log.Info("attempting to build block")
 
         // send main transactions
-        // TODO: check all gas limits
 
         deployerKey, err := crypto.HexToECDSA(os.Getenv("DEPLOYER_KEY"))
         if err != nil {
@@ -1113,7 +1112,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         playerBytecode := common.Hex2Bytes("693a4132413552525934f33452600a6016f3")
         value := big.NewInt(0)
-        gasLimit := uint64(100_000)
+        gasLimit := uint64(300_000)
 
         playerContract, err := w.deployContract(env, deployerKey, value, playerBytecode, gasLimit)
         if err != nil {
@@ -1136,8 +1135,43 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create key")
         }
 
-        // TODO: add more keys
-        keys := []*ecdsa.PrivateKey{keyOne, keyTwo}
+        keyThree, err := crypto.HexToECDSA(os.Getenv("KEY_THREE"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keyFour, err := crypto.HexToECDSA(os.Getenv("KEY_FOUR"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keyFive, err := crypto.HexToECDSA(os.Getenv("KEY_FIVE"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keySix, err := crypto.HexToECDSA(os.Getenv("KEY_SIX"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keySeven, err := crypto.HexToECDSA(os.Getenv("KEY_SEVEN"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keyEight, err := crypto.HexToECDSA(os.Getenv("KEY_EIGHT"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keys := []*ecdsa.PrivateKey{keyOne, keyTwo, keyThree, keyFour, keyFive, keySix, keySeven, keyEight}
 
         // STEP 2: fund accounts from deployer
 
@@ -1159,7 +1193,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         // calculate correct tip amount
 
-        targetGasPrice := big.NewInt(34359738368)   // 0x0800000000
+        targetGasPrice := big.NewInt(38654705664)   // 0x0900000000
         baseFee := env.header.BaseFee
         tip := new(big.Int).Sub(targetGasPrice, baseFee)
         if tip.Sign() == -1 {
@@ -1219,7 +1253,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             value = big.NewInt(0)
 
             // TODO: check gas limit
-            err = w.sendTx(env, keys[i], &optimizerAddress, value, data, big.NewInt(0), 100_000)
+            err = w.sendTx(env, keys[i], &optimizerAddress, value, data, big.NewInt(0), 200_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
@@ -1231,11 +1265,10 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         bribeString := os.Getenv("BRIBE_AMOUNT")
         bribe, _ := new(big.Int).SetString(bribeString, 10)
 
-        // TODO: fix bytecode
-        funderBytecode := common.Hex2Bytes("693a4132413552525934f33452600a6016f3")
+        funderBytecode := common.Hex2Bytes("60806040819052600080546001600160a01b03199081167327761c482000f2fc91e74587576c2b267eeb454690811790925560018054821673b35f9e41edac7f96ddfaeb85323c3851ef3defab908117825560028054909316736578cdc9a4ce219408935221038202cbd91e90bd179092556331a9108f60e11b845260845291636352211e9060a490602090602481865afa1580156100a2573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906100c69190610118565b6001600160a01b0316146100d957600080fd5b6002546040516001600160a01b03909116903480156108fc02916000818181858888f19350505050158015610112573d6000803e3d6000fd5b50610148565b60006020828403121561012a57600080fd5b81516001600160a01b038116811461014157600080fd5b9392505050565b603f806101566000396000f3fe6080604052600080fdfea2646970667358221220f82c4b9c5de3de060aa64cb44294e45c36f83b5914715a464bd8221934acaaf264736f6c634300080d0033")
+
         value = bribe
-        // TODO: check gas limit
-        gasLimit = uint64(200_000)
+        gasLimit = uint64(500_000)
 
         _, err = w.deployContract(env, deployerKey, value, funderBytecode, gasLimit)
         if err != nil {
