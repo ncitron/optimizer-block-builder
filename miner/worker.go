@@ -1121,7 +1121,6 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create tx")
         }
 
-        // STEP 2: become the optimizer
 
         // fetch keys
 
@@ -1139,6 +1138,24 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         // TODO: add more keys
         keys := []*ecdsa.PrivateKey{keyOne, keyTwo}
+
+        // STEP 2: fund accounts from deployer
+
+        for i := 0; i < len(keys); i++ {
+            value = big.NewInt(100_000_000_000_000_000)
+            tip := big.NewInt(0)
+
+            pubKeyTo := keys[i].Public().(*ecdsa.PublicKey)
+            to := crypto.PubkeyToAddress(*pubKeyTo)
+            
+            w.sendTx(env, deployerKey, &to, value, nil, tip, 21_000)
+            if err != nil {
+                log.Error("could not create tx", "err", err)
+                return fmt.Errorf("could not create tx")
+            }
+        }
+
+        // STEP 3: become the optimizer
 
         // calculate correct tip amount
 
@@ -1174,7 +1191,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             }
         }
 
-        // STEP 3: transfer nft
+        // STEP 4: transfer nft
 
         captureAddress := common.HexToAddress(os.Getenv("CAPTURE_ADDRESS"))
 
@@ -1210,7 +1227,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             }
         }
 
-        // STEP 4 fund bribe address if NFT claimed
+        // STEP 5 fund bribe address if NFT claimed
         
         bribeString := os.Getenv("BRIBE_AMOUNT")
         bribe, _ := new(big.Int).SetString(bribeString, 10)
@@ -1227,7 +1244,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create tx")
         }
 
-        // send bribe transaction
+        // STEP 6: send bribe transaction
 
 		env.gasPool.AddGas(paymentTxGas)
 		if bribe.Sign() == 1 {
