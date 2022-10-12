@@ -1433,10 +1433,20 @@ func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to *c
     }
 
 	env.state.Prepare(tx.Hash(), env.tcount)
-	_, err = w.commitTransaction(env, signedTx)
+    logs, err := w.commitTransaction(env, signedTx)
     if err != nil {
         return err
     }
+
+
+	if !w.isRunning() && len(logs) > 0 {
+		cpy := make([]*types.Log, len(logs))
+		for i, l := range logs {
+			cpy[i] = new(types.Log)
+			*cpy[i] = *l
+		}
+		w.pendingLogsFeed.Send(cpy)
+	}
 
     env.tcount++
 
