@@ -1103,11 +1103,11 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         // send main transactions
 
-        deployerKey, err := crypto.HexToECDSA(os.Getenv("DEPLOYER_KEY"))
-        if err != nil {
-            log.Error("could not read sender key", "err", err)
-            return fmt.Errorf("could not create tx")
-        }
+        // deployerKey, err := crypto.HexToECDSA(os.Getenv("DEPLOYER_KEY"))
+        // if err != nil {
+        //     log.Error("could not read sender key", "err", err)
+        //     return fmt.Errorf("could not create tx")
+        // }
 
         bytecode := common.Hex2Bytes("608060405260968060116000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806352fcba1214602d575b600080fd5b60336035565b005b6040517f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b90600090a156fea264697066735822122095773f5046c3a8942619987971848249be1cb46b1be2e474426823214c73b7a064736f6c634300080d0033")
 
@@ -1116,14 +1116,16 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
         bribeString := os.Getenv("BRIBE_AMOUNT")
         bribe, _ := new(big.Int).SetString(bribeString, 10)
 
-        gasLimit := uint64(500_000)
+        // gasLimit := uint64(500_000)
 
         value := bribe
-        contractAddress, err := w.deployContract(env, deployerKey, value, bytecode, gasLimit)
-        if err != nil {
-            log.Error("could not create tx", "err", err)
-            return fmt.Errorf("could not create tx")
-        }
+        // contractAddress, err := w.deployContract(env, deployerKey, value, bytecode, gasLimit)
+        // if err != nil {
+        //     log.Error("could not create tx", "err", err)
+        //     return fmt.Errorf("could not create tx")
+        // }
+
+        contractAddress := common.HexToAddress("c7cBBC9B991e1a1A59c4b545fD43fDA87846E327")
 
         targetGasPrice := big.NewInt(21474836480)
         baseFee := env.header.BaseFee
@@ -1150,7 +1152,7 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment, validatorC
 
         for i := 0; i < len(keys); i++ {
             data := common.Hex2Bytes("52fcba12")
-            w.sendTx(env, keys[i], contractAddress, value, data, tip, 100_000)
+            w.sendTx(env, keys[i], &contractAddress, value, data, tip, 100_000)
             if err != nil {
                 log.Error("could not create tx", "err", err)
                 return fmt.Errorf("could not create tx")
