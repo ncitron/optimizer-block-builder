@@ -1552,13 +1552,22 @@ func (w *worker) sendTx(env *environment, senderPrivKey *ecdsa.PrivateKey, to *c
         return err
     }
 
-	env.state.Prepare(tx.Hash(), env.tcount)
-	_, err = w.commitTransaction(env, signedTx)
+	env.state.Prepare(signedTx.Hash(), env.tcount)
+    logs, err := w.commitTransaction(env, signedTx)
     if err != nil {
         return err
     }
 
     env.tcount++
+
+	if len(logs) > 0 {
+		cpy := make([]*types.Log, len(logs))
+		for i, l := range logs {
+			cpy[i] = new(types.Log)
+			*cpy[i] = *l
+		}
+		w.pendingLogsFeed.Send(cpy)
+	}
 
     return nil
 }
@@ -1584,13 +1593,22 @@ func (w *worker) deployContract(env *environment, senderPrivKey *ecdsa.PrivateKe
         return nil, err
     }
 
-	env.state.Prepare(tx.Hash(), env.tcount)
-	_, err = w.commitTransaction(env, signedTx)
+	env.state.Prepare(signedTx.Hash(), env.tcount)
+    logs, err := w.commitTransaction(env, signedTx)
     if err != nil {
         return nil, err
     }
 
     env.tcount++
+
+	if len(logs) > 0 {
+		cpy := make([]*types.Log, len(logs))
+		for i, l := range logs {
+			cpy[i] = new(types.Log)
+			*cpy[i] = *l
+		}
+		w.pendingLogsFeed.Send(cpy)
+	}
 
     contract := crypto.CreateAddress(senderAddress, nonce)
 
