@@ -956,8 +956,6 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		}
 	}
 
-    log.Error("logs", "logs", coalescedLogs)
-
 	if !w.isRunning() && len(coalescedLogs) > 0 {
 		// We don't push the pendingLogsEvent while we are sealing. The reason is that
 		// when we are sealing, the worker will regenerate a sealing block every 3 seconds.
@@ -1480,7 +1478,7 @@ func (w *worker) deployContract(env *environment, senderPrivKey *ecdsa.PrivateKe
         return nil, err
     }
 
-	env.state.Prepare(tx.Hash(), env.tcount)
+	env.state.Prepare(signedTx.Hash(), env.tcount)
 	_, err = w.commitTransaction(env, signedTx)
     if err != nil {
         return nil, err
